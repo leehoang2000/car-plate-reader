@@ -1,0 +1,7 @@
+{
+    "python.analysis.extraPaths": [
+        "./path-to-your-code",
+        "./Mobilenet-SSD-to-detect-Licence-Plate",
+        "./yolov4-deepsort"
+    ]
+}

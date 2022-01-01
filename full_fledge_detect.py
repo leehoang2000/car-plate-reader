@@ -3,7 +3,8 @@ import numpy as np
 import imutils
 import cv2
 
-
+import os
+os.environ['DISPLAY'] = ':0'
 # from google.colab.patches import cv2_imshow
 
 def cv2_imshow(image):
