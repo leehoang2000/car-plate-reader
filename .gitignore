@@ -1,3 +1,6 @@
+#output vids
+yolov4-deepsort/alpr_unconstrained/data/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
