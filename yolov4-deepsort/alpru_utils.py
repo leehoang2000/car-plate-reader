@@ -48,7 +48,6 @@ class ALPRU_UTILS:
 
             Llp,LlpImgs,_ = detect_lp(self.wpod_net,im2single(Ivehicle),bound_dim,2**4,(240,80),lp_threshold)
             
-            print(Llp)
             if len(LlpImgs):
                 Ilp = LlpImgs[0]
                 Ilp = cv2.cvtColor(Ilp, cv2.COLOR_BGR2GRAY)

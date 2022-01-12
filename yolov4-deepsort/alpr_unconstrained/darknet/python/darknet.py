@@ -147,7 +147,7 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
 import cv2
 def detect_image(net, meta, im, thresh=.5, hier_thresh=.5, nms=.45):
     # what the hell am I doing
-    tmp_path = "/tmp/wtf/wtf.png"
+    tmp_path = "/tmp/img/img.png"
     cv2.imwrite(tmp_path,im)
     im = load_image(bytes(tmp_path,encoding='utf-8'), 0, 0)
     num = c_int(0)

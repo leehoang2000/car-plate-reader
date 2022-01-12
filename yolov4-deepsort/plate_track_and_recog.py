@@ -113,7 +113,7 @@ def main(_argv):
     # initialize tracker
     tracker = Tracker(metric)
     # init the alpru
-    # alpru = ALPRU_UTILS()
+    alpru = ALPRU_UTILS()
 
     # load configuration for object detector
     config = ConfigProto()
@@ -284,29 +284,40 @@ def main(_argv):
 
             car_crop = frame[y1_car:y2_car+1,x1_car:x2_car+1]
               
+            ### Our MobileNet
             input_tensor = tf.convert_to_tensor(car_crop, dtype=tf.float32)
             boxes, classes, scores = detect(mobileNet_plate_interpreter, input_tensor)
             highest_score = np.max(scores)
             plate_box = boxes[np.where(scores == highest_score)]
-            plate_box = (plate_box*320).astype(int)
-            plate_box[0][0] = plate_box[0][0] + y1_car
-            plate_box[0][1] = plate_box[0][1] + x1_car
-            plate_box[0][2] = plate_box[0][2] + y2_car
-            plate_box[0][3] = plate_box[0][3] + x2_car
+            plate_box = plate_box[0]
+            height = car_crop.shape[0]
+            width = car_crop.shape[1]
+            x1_plate = int(plate_box[0]*width)
+            y1_plate = int(plate_box[1]*height)
+            x2_plate = int(plate_box[2]*width)
+            y2_plate = int(plate_box[3]*height)
+            
+            Cropped = car_crop[y1_plate:y2_plate,x1_plate:x2_plate]
 
-
+            ### WpodNet
+            # tmp path at darknet.py
             # Cropped = alpru.license_plate_detect(car_crop)
-            # if Cropped is not None:
-            #     lpText = alpru.license_plate_ocr(Cropped)
 
-        
+            if Cropped is not None and Cropped.shape[1] is not 0:
+                cv2.imwrite("/tmp/img/img.png",Cropped)
+                # cv2.imshow("plate",Cropped/255)
+                # cv2.waitKey(0)
+                lpText = alpru.license_plate_ocr(Cropped)
+                if lpText is None:
+                    lpText = ""
+
         # draw bbox on screen
             color = colors[int(track.track_id) % len(colors)]
             color = [i * 255 for i in color]
             # car box
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
             # plate box
-            cv2.rectangle(frame, (int(plate_box[0][0]), int(plate_box[0][1])), (int(plate_box[0][2]), int(plate_box[0][3])), (255,255,0), 2)
+            cv2.rectangle(frame, (x1_plate+x1_car, y1_plate+y1_car), (x2_plate+x1_car, y2_plate+y1_car), (255,255,0), 2)
             # text box
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1]-30)), (int(bbox[0])+(len(class_name)+len(str(track.track_id)))*17, int(bbox[1])), color, -1)
             cv2.putText(frame, class_name + "-" + lpText + "-" + str(track.track_id),(int(bbox[0]), int(bbox[1]-10)),0, 0.75, (255,255,255),2)
