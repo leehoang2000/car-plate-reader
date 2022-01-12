@@ -6,8 +6,8 @@ import alpr_unconstrained.darknet.python.darknet as dn
 from alpr_unconstrained.darknet.python.darknet import detect_image
 
 from alpr_unconstrained.src.keras_utils 			import load_model
-from glob 						import glob
-from os.path 					import splitext, basename
+from glob 						                    import glob
+from os.path 				                    	import splitext, basename
 from alpr_unconstrained.src.utils 					import im2single
 from alpr_unconstrained.src.keras_utils 			import load_model, detect_lp
 from alpr_unconstrained.src.label 					import Shape, writeShapes
@@ -27,7 +27,15 @@ OCR_DATASET = 'alpr_unconstrained/data/ocr/ocr-net.data'
 class ALPRU_UTILS:
     def __init__(self, wpod_net_path=WPOD_NET_PATH):
         self.wpod_net = load_model(wpod_net_path)
+        self.ocr_threshold = .4
 
+        ocr_weights = bytes(OCR_WEIGHTS, encoding='utf-8')
+        ocr_netcfg  = bytes(OCR_NETCFG, encoding='utf-8')
+        ocr_dataset = bytes(OCR_DATASET, encoding='utf-8')
+
+        self.ocr_net  = dn.load_net(ocr_netcfg, ocr_weights, 0)
+        self.ocr_meta = dn.load_meta(ocr_dataset)
+        
 
     def license_plate_detect(self, image):    
         try:
@@ -52,15 +60,8 @@ class ALPRU_UTILS:
 
     def license_plate_ocr(self,image):
         try:
-            ocr_threshold = .4
-
-            ocr_weights = bytes(OCR_WEIGHTS, encoding='utf-8')
-            ocr_netcfg  = bytes(OCR_NETCFG, encoding='utf-8')
-            ocr_dataset = bytes(OCR_DATASET, encoding='utf-8')
-
-            ocr_net  = dn.load_net(ocr_netcfg, ocr_weights, 0)
-            ocr_meta = dn.load_meta(ocr_dataset)
-            R,(width,height) = detect_image(ocr_net, ocr_meta, image ,thresh=ocr_threshold, nms=None)
+            
+            R,(width,height) = detect_image(self.ocr_net, self.ocr_meta, image ,thresh=self.ocr_threshold, nms=None)
 
             if len(R):
 

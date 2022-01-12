@@ -35,7 +35,7 @@ flags.DEFINE_boolean('tiny', False, 'yolo or yolo-tiny')
 flags.DEFINE_string('model', 'yolov4', 'yolov3 or yolov4')
 flags.DEFINE_string('video', './data/video/test.mp4', 'path to input video or set to 0 for webcam')
 flags.DEFINE_string('output', None, 'path to output video')
-flags.DEFINE_string('output_format', 'XVID', 'codec used in VideoWriter when saving video to file')
+flags.DEFINE_string('output_format', 'mp4v', 'codec used in VideoWriter when saving video to file')
 flags.DEFINE_float('iou', 0.45, 'iou threshold')
 flags.DEFINE_float('score', 0.50, 'score threshold')
 flags.DEFINE_boolean('dont_show', False, 'dont show video output')
@@ -44,8 +44,8 @@ flags.DEFINE_boolean('count', False, 'count objects being tracked on screen')
 flags.DEFINE_boolean('count_car', False,'count all cars detected until now')
 
 def detect_plate(img):
-    PBTXT = "models/label_map.pbtxt"
-    CONFIG ="models/pipeline.config"
+    # PBTXT = "models/label_map.pbtxt"
+    # CONFIG ="models/pipeline.config"
     MODEL = "Mobilenet_SSD_Plate_detect/models/exported-models-V2/my_model/saved_model"
 
     detector = tf.saved_model.load(MODEL)
@@ -58,8 +58,6 @@ def detect_plate(img):
     detections['detection_classes'] = detections['detection_classes'].astype(np.int64)
 
     height, width, channel = np.shape(img)
-    pl_height = int(height*0.1)
-    pl_width = int(width*0.1)
 
     y1 = int(detections['detection_boxes'][0][0]*height)
     x1 = int(detections['detection_boxes'][0][1]*width)
@@ -69,6 +67,37 @@ def detect_plate(img):
     plate = [x1,x2,y1,y2]
     return plate
 
+
+def detect(interpreter, input_tensor):
+    """Run detection on an input image.
+
+    Args:
+    interpreter: tf.lite.Interpreter
+    input_tensor: A [1, height, width, 3] Tensor of type tf.float32.
+        Note that height and width can be anything since the image will be
+        immediately resized according to the needs of the model within this
+        function.
+
+    Returns:
+    A dict containing 3 Tensors (`detection_boxes`, `detection_classes`,
+        and `detection_scores`).
+    """
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+
+    # We use the original model for pre-processing, since the TFLite model doesn't
+    # include pre-processing.
+    # preprocessed_image, shapes = detection_model.preprocess(input_tensor)
+    input_tensor = tf.expand_dims(tf.convert_to_tensor(input_tensor, dtype=tf.float32), axis=0)
+    input_tensor = np.resize(input_tensor,(1,320,320,3))
+    interpreter.set_tensor(input_details[0]['index'], input_tensor)
+
+    interpreter.invoke()
+
+    boxes = interpreter.get_tensor(output_details[1]['index'])
+    classes = interpreter.get_tensor(output_details[3]['index'])
+    scores = interpreter.get_tensor(output_details[0]['index'])
+    return boxes, classes, scores
 
 def main(_argv):
     # Definition of the parameters
@@ -83,14 +112,19 @@ def main(_argv):
     metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
     # initialize tracker
     tracker = Tracker(metric)
+    # init the alpru
+    # alpru = ALPRU_UTILS()
 
     # load configuration for object detector
     config = ConfigProto()
     config.gpu_options.allow_growth = True
-    session = InteractiveSession(config=config)
-    STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
+    # session = InteractiveSession(config=config)
+    # STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
     input_size = FLAGS.size
     video_path = FLAGS.video
+
+    mobileNet_plate_interpreter = tf.lite.Interpreter(model_path="mobileNet_tflite/model.tflite")
+    mobileNet_plate_interpreter.allocate_tensors()
 
     # load tflite model if flag is set
     if FLAGS.framework == 'tflite':
@@ -241,40 +275,42 @@ def main(_argv):
             bbox = track.to_tlbr()
             class_name = track.get_class()
             
-        # draw bbox on screen
-            color = colors[int(track.track_id) % len(colors)]
-            color = [i * 255 for i in color]
-            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
-            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1]-30)), (int(bbox[0])+(len(class_name)+len(str(track.track_id)))*17, int(bbox[1])), color, -1)
-            cv2.putText(frame, class_name + "-" + str(track.track_id),(int(bbox[0]), int(bbox[1]-10)),0, 0.75, (255,255,255),2)
-
         # Recognize the plate
-            alpru = ALPRU_UTILS()
-
+            lpText = ""
             x1_car = int(bbox[0])
             y1_car = int(bbox[1])
             x2_car = int(bbox[2])
             y2_car = int(bbox[3])
-            # print(x1_car,y1_car,x2_car,y2_car)
-            # cv2.imshow("car",frame[x1_car:x2_car+1,y1_car:y2_car+1])
-            # cv2.waitKey(0)
-            # print('detect plate')
+
             car_crop = frame[y1_car:y2_car+1,x1_car:x2_car+1]
-            Cropped = alpru.license_plate_detect(car_crop)
-            if Cropped is not None:
-                lpText = alpru.license_plate_ocr(Cropped)
-                # print('detect plate done')
-                print(lpText+ "-" + str(track.track_id))
-            # cv2.rectangle(frame, (int(x1_car+x1_plate), int(y1_car+y1_plate)), (int(x2_car+x2_plate), int(y2_car+y2_plate)), color, 2)
-            # Cropped = car_crop[y1_plate:y2_plate+1,x1_plate:x2_plate+1]
+              
+            input_tensor = tf.convert_to_tensor(car_crop, dtype=tf.float32)
+            boxes, classes, scores = detect(mobileNet_plate_interpreter, input_tensor)
+            highest_score = np.max(scores)
+            plate_box = boxes[np.where(scores == highest_score)]
+            plate_box = (plate_box*320).astype(int)
+            plate_box[0][0] = plate_box[0][0] + y1_car
+            plate_box[0][1] = plate_box[0][1] + x1_car
+            plate_box[0][2] = plate_box[0][2] + y2_car
+            plate_box[0][3] = plate_box[0][3] + x2_car
+
+
+            # Cropped = alpru.license_plate_detect(car_crop)
+            # if Cropped is not None:
+            #     lpText = alpru.license_plate_ocr(Cropped)
+
         
-        # OCR the plate
-            # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            # text = pytesseract.image_to_string(Cropped, config='--psm 6')
-            # print(text)
-            # cv2.imshow("car_crop",car_crop)
-            # cv2.imshow("plate",Cropped)
-            # cv2.waitKey(0)
+        # draw bbox on screen
+            color = colors[int(track.track_id) % len(colors)]
+            color = [i * 255 for i in color]
+            # car box
+            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
+            # plate box
+            cv2.rectangle(frame, (int(plate_box[0][0]), int(plate_box[0][1])), (int(plate_box[0][2]), int(plate_box[0][3])), (255,255,0), 2)
+            # text box
+            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1]-30)), (int(bbox[0])+(len(class_name)+len(str(track.track_id)))*17, int(bbox[1])), color, -1)
+            cv2.putText(frame, class_name + "-" + lpText + "-" + str(track.track_id),(int(bbox[0]), int(bbox[1]-10)),0, 0.75, (255,255,255),2)
+
 
         # if enable info flag then print details about each track
             if FLAGS.info:
