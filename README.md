@@ -7,8 +7,9 @@ The git folder was lost, will add soon
 
 # Run Full inference
 This github already come with model weights
-
+```
 cd yolov4-deepsort
 pip install -r requirements.txt
 
 python plate_track_and_recog.py --video path/to/your/video
+```
