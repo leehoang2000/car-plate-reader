@@ -168,7 +168,7 @@ def main(_argv):
             break
         frame_num +=1
         # print('Frame #: ', frame_num)
-        frame_size = frame.shape[:2]
+        # frame_size = frame.shape[:2]
         image_data = cv2.resize(frame, (input_size, input_size))
         image_data = image_data / 255.
         image_data = image_data[np.newaxis, ...].astype(np.float32)
@@ -303,7 +303,7 @@ def main(_argv):
             # tmp path at darknet.py
             # Cropped = alpru.license_plate_detect(car_crop)
 
-            if Cropped is not None and Cropped.shape[1] is not 0:
+            if Cropped is not None and Cropped.shape[1] is not 0 and Cropped.shape[0] is not 0:
                 cv2.imwrite("/tmp/img/img.png",Cropped)
                 # cv2.imshow("plate",Cropped/255)
                 # cv2.waitKey(0)
