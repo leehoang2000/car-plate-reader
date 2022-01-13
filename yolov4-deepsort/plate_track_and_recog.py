@@ -285,26 +285,26 @@ def main(_argv):
             car_crop = frame[y1_car:y2_car+1,x1_car:x2_car+1]
               
             ### Our MobileNet
-            input_tensor = tf.convert_to_tensor(car_crop, dtype=tf.float32)
-            boxes, classes, scores = detect(mobileNet_plate_interpreter, input_tensor)
-            highest_score = np.max(scores)
-            plate_box = boxes[np.where(scores == highest_score)]
-            plate_box = plate_box[0]
-            height = car_crop.shape[0]
-            width = car_crop.shape[1]
-            x1_plate = int(plate_box[0]*width)
-            y1_plate = int(plate_box[1]*height)
-            x2_plate = int(plate_box[2]*width)
-            y2_plate = int(plate_box[3]*height)
+            # input_tensor = tf.convert_to_tensor(car_crop, dtype=tf.float32)
+            # boxes, classes, scores = detect(mobileNet_plate_interpreter, input_tensor)
+            # highest_score = np.max(scores)
+            # plate_box = boxes[np.where(scores == highest_score)]
+            # plate_box = plate_box[0]
+            # height = car_crop.shape[0]
+            # width = car_crop.shape[1]
+            # x1_plate = int(plate_box[0]*width)
+            # y1_plate = int(plate_box[1]*height)
+            # x2_plate = int(plate_box[2]*width)
+            # y2_plate = int(plate_box[3]*height)
             
-            Cropped = car_crop[y1_plate:y2_plate,x1_plate:x2_plate]
+            # Cropped = car_crop[y1_plate:y2_plate,x1_plate:x2_plate]
 
             ### WpodNet
             # tmp path at darknet.py
-            # Cropped = alpru.license_plate_detect(car_crop)
+            Cropped = alpru.license_plate_detect(car_crop)
 
             if Cropped is not None and Cropped.shape[1] is not 0 and Cropped.shape[0] is not 0:
-                cv2.imwrite("/tmp/img/img.png",Cropped)
+                cv2.imwrite("/tmp/img.png",Cropped)
                 # cv2.imshow("plate",Cropped/255)
                 # cv2.waitKey(0)
                 lpText = alpru.license_plate_ocr(Cropped)
